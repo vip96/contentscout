@@ -1,38 +1,49 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 
+type Page = {
+  id: number
+  instagram_username: string
+  user_id: string
+  follower_count: number
+  following_count: number
+  total_posts: number
+  avg_engagement_rate: number
+  created_at: string
+}
+
 export default function Dashboard() {
-  const [pages, setPages] = useState([])
+  const [pages, setPages] = useState<Page[]>([])
   const [newUsername, setNewUsername] = useState('')
   const [loading, setLoading] = useState(false)
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(undefined)
 
-  // Check if user is logged in
-  useEffect(() => {
-    checkUser()
-  }, [])
-
-  async function checkUser() {
-    const { data: { session } } = await supabase.auth.getSession()
-    setUser(session?.user ?? null)
-    if (session?.user) {
-      fetchPages()
-    }
-  }
-
-  // Fetch all pages
-  async function fetchPages() {
+  const fetchPages = useCallback(async () => {
     const { data, error } = await supabase
       .from('pages')
       .select('*')
       .order('created_at', { ascending: false })
     
     if (!error) {
-      setPages(data || [])
+      setPages((data || []) as Page[])
     }
-  }
+  }, [])
+
+  const checkUser = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    // @ts-ignore
+    setUser(session?.user ?? null)
+    if (session?.user) {
+      fetchPages()
+    }
+  }, [fetchPages])
+
+  // Check if user is logged in
+  useEffect(() => {
+    checkUser()
+  }, [checkUser])
 
   // Add new Instagram page
   async function addPage(e) {
@@ -57,7 +68,7 @@ export default function Dashboard() {
       .select()
 
     if (!error) {
-      setPages([...pages, ...data])
+      setPages([...pages, ...((data || []) as Page[])])
       setNewUsername('')
     } else {
       alert('Error adding page: ' + error.message)
